@@ -3,13 +3,13 @@ id: a-comprehensive-guide-to-ingesting-data-into-snowflake
 categories: snowflake-site:taxonomy/solution-center/certification/quickstart, snowflake-site:taxonomy/product/data-engineering, snowflake-site:taxonomy/snowflake-feature/ingestion, snowflake-site:taxonomy/snowflake-feature/connectors
 language: en
 environments: web
-status: Published 
+status: Published
 feedback link: https://github.com/Snowflake-Labs/sfguides/issues
 authors: Brad Culberson
 
 # A Comprehensive Guide: Ingesting Data into Snowflake
 
-## Overview 
+## Overview
 
 There are many different ways to get data into Snowflake. Different use cases, requirements, team skillsets, and technology choices all
 contribute to making the right decision on how to ingest data. This quickstart will guide you through an example of the same data loaded with different methods:
@@ -25,39 +25,46 @@ contribute to making the right decision on how to ingest data. This quickstart w
 By the end of this guide you should be familiar with many ways to load data, and be able to choose the right pattern for your goals and needs. Each method of ingest can be done separately and optionally as desired after going through the initial project setup and are not dependent on each other.
 
 ### Prerequisites
+
 - Snowflake Account with the ability to create a User, Role, Database, Snowpipe, Serverless Task, Execute Task
 - Familiarity with Python, Kafka, and/or Java
 - Basic knowledge of Docker
 - Ability to run Docker locally or access to an environment to run Kafka and Kafka Connectors
 
-### What You’ll Learn 
+### What You’ll Learn
+
 - How and when to insert data using connectors
 - How and when to insert data from files
 - How to load data from Kafka
 - How to load data from a stream
 
 ### What You’ll Need
-- [Snowflake](https://snowflake.com/) Account 
 
-### Mac Requirements 
+- [Snowflake](https://snowflake.com/) Account
+
+### Mac Requirements
+
 - [Docker](https://docs.docker.com/desktop/install/mac-install/) Installed
 - [Conda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/macos.html) Installed
 
 ### Linux Requirements
+
 - [Docker](https://docs.docker.com/engine/install/ubuntu/) Installed
 - [Conda](https://docs.conda.io/projects/conda/en/stable/user-guide/install/linux.html) Installed
 
 ### Windows Requirements
+
 - [WSL with Ubuntu](https://learn.microsoft.com/en-us/windows/wsl/install) for Windows
 - [Docker](https://docs.docker.com/engine/install/ubuntu/) Installed in Ubuntu
 - [Conda](https://docs.conda.io/projects/conda/en/stable/user-guide/install/linux.html) Installed in Ubuntu
 
-### What You’ll Build 
+### What You’ll Build
+
 - A project which can load data many different ways into your Snowflake account.
 
 ## Environment Setup
 
-This guide has a data generator and several examples which need Python 3.8, Java, and some other libraries and utilities. 
+This guide has a data generator and several examples which need Python 3.8, Java, and some other libraries and utilities.
 
 To set up these dependencies, we will use conda.
 
@@ -108,7 +115,7 @@ You may have your own data you would like to generate, feel free to modify the d
 
 Most of the ingest patterns we will go through in this guide will actually outperform the faker library so it is best to run the data generation once and reuse that generated data in the different ingest patterns.
 
-Create a director on your computer for this project and add a file called data_generator.py. This code will take the number of tickets to create as an arg and output the json data with one lift ticket (record) per line. The rest of the files in this guide can be put in this same directory.
+Create a directory on your computer for this project and add a file called data_generator.py. This code will take the number of tickets to create as an arg and output the json data with one lift ticket (record) per line. The rest of the files in this guide can be put in this same directory.
 
 ```python
 import sys
@@ -127,7 +134,7 @@ resorts = ["Vail", "Beaver Creek", "Breckenridge", "Keystone", "Crested Butte", 
            "Kirkwood", "Whistler Blackcomb", "Perisher", "Falls Creek", "Hotham", "Stowe", "Mount Snow", "Okemo",
            "Hunter Mountain", "Mount Sunapee", "Attitash", "Wildcat", "Crotched", "Stevens Pass", "Liberty", "Roundtop", 
            "Whitetail", "Jack Frost", "Big Boulder", "Alpine Valley", "Boston Mills", "Brandywine", "Mad River",
-           "Hidden Valley", "Snow Creek", "Wilmot", "Afton Alps" , "Mt. Brighton", "Paoli Peaks"]    
+           "Hidden Valley", "Snow Creek", "Wilmot", "Afton Alps" , "Mt. Brighton", "Paoli Peaks"]  
 
 
 def print_lift_ticket():
@@ -180,7 +187,7 @@ You can increase or decrease the size of records to any number that you would li
 
 ## Database Setup
 
-Kafka and the Snowpipe API both require the use of key pair authentication. Due to this, I will use keypair for all the ingest solutions so they are all in common. 
+Kafka and the Snowpipe API both require the use of key pair authentication. Due to this, I will use keypair for all the ingest solutions so they are all in common.
 
 Create a database, schema, warehouse, role, and user called INGEST in your Snowflake account.
 
@@ -289,7 +296,7 @@ def save_to_snowflake(snow, message):
     logging.debug(f"inserted ticket {record}")
 
 
-if __name__ == "__main__":    
+if __name__ == "__main__":  
     snow = connect_snow()
     for message in sys.stdin:
         if message != '\n':
@@ -298,7 +305,7 @@ if __name__ == "__main__":
             break
     snow.close()
     logging.info("Ingest complete")
-    
+  
 ```
 
 In order to test this insert, run the following in your shell:
@@ -323,7 +330,7 @@ cat data.json.gz | zcat | head -n 1000 | python py_insert.py
 
 Feel free to take a break and come back in a few minutes.
 
-Do you think this could be faster if we parallelized the work? 
+Do you think this could be faster if we parallelized the work?
 
 To verify if that is true or not, run 10 of these same loads in multiple terminals and see how long it takes.
 
@@ -338,15 +345,10 @@ The total time loading in parallel will be the same or worse than before. This i
 ### Tips
 
 * Ingest is billed based on warehouse credits consumed while online.
-
 * The connectors support multi-inserts but data containing a variant field cannot be formatted into a multi-insert.
-
 * Using inserts and multi-inserts will not efficiently use warehouse resources (optimal at 100MB or more with some concurrency). It is better to upload data and COPY into the table.
-
 * Connectors will switch to creating and uploading a file and doing a COPY into when large batches are set. This is not configurable.
-
 * Many assume adding significant concurrency will support higher throughputs of data. The additional concurrent INSERTS will be blocked by other INSERTS, more frequently when small payloads are inserted. You need to move to bigger batches to get more througput.
-
 * Review query history to see what the connector is doing.
 
 In cases where the connector has enough data in the executemany to create a well sized file for COPY and does so, this does become as efficient as the following methods.
@@ -355,8 +357,7 @@ The example above could not use executemany as it had VARIANT data.
 
 The next methods will show how to batch into better sized blocks of work which will drive higher throughputs and higher efficiency on Snowflake.
 
-
-##  File Uploads
+## File Uploads
 
 ### File Upload & Copy (Warehouse) from the Python Connector
 
@@ -505,13 +506,9 @@ This last call will batch together 10,000 records into each file for processing.
 #### Tips
 
 * Ingest is billed based on warehouse credits consumed while online.
-
 * It is very hard to fully utilize a warehouse with this pattern. Adding some concurrency will help IF the files are already well sized. Even with the best code, very few workloads have fixed data flow volumes that well match a warehouse. This is mostly a wasted effort as serverless and snowpipe solves all use cases w/o constraints.
-
 * Try to get to 100mb files for most efficiency.
-
 * Best warehouses sizes are almost always way smaller than expected, commonly XS.
-
 
 ### File Upload & Copy (Snowpipe) using Python
 
@@ -589,7 +586,7 @@ def save_to_snowflake(snow, batch, temp_dir, ingest_manager):
     logging.info(f"response from snowflake for file {file_name}: {resp['responseCode']}")
 
 
-if __name__ == "__main__":    
+if __name__ == "__main__":  
     args = sys.argv[1:]
     batch_size = int(args[0])
     snow = connect_snow()
@@ -610,7 +607,7 @@ if __name__ == "__main__":
                 save_to_snowflake(snow, batch, temp_dir, ingest_manager)
                 batch = []
         else:
-            break    
+            break  
     if len(batch) > 0:
         save_to_snowflake(snow, batch, temp_dir, ingest_manager)
     temp_dir.cleanup()
@@ -646,11 +643,8 @@ Test this approach with more test data and larger batch sizes. Review INFORMATIO
 #### Tips
 
 * Ingest is billed based on seconds of compute used by Snowpipe and number of files ingested.
-
 * This is one of the most efficient and highest throughput ways to ingest data when batches are well sized.
-
 * File size is a huge factor for cost efficiency and throughput. If you have files and batches much smaller than 100mb and cannot change them, this pattern should be avoided.
-
 * Expect delays when Snowpipe has enqueued the request to ingest the data. This process is asynchronous. In most cases these patterns can deliver ~ minute ingest times when including the time to batch, upload, and copy but this varies based on your use case.
 
 ### File Upload & Copy (Serverless) from the Python Connector
@@ -658,6 +652,7 @@ Test this approach with more test data and larger batch sizes. Review INFORMATIO
 It can be useful to leverage a [Serverless Task](https://docs.snowflake.com/en/user-guide/tasks-intro) which is scheduled every minute to ingest the files uploaded by clients over the last minute.
 
 This has several advantages over using Snowpipe for Copy:
+
 * Eliminates the per file costs incurred by Snowpipe.
 * Small files can be merged together more efficiently
 
@@ -739,7 +734,7 @@ def save_to_snowflake(snow, batch, temp_dir):
     logging.debug(f"{len(batch)} tickets in stage")
 
 
-if __name__ == "__main__":    
+if __name__ == "__main__":  
     args = sys.argv[1:]
     batch_size = int(args[0])
     snow = connect_snow()
@@ -754,7 +749,7 @@ if __name__ == "__main__":
                 save_to_snowflake(snow, batch, temp_dir)
                 batch = []
         else:
-            break    
+            break  
     if len(batch) > 0:
         save_to_snowflake(snow, batch, temp_dir)
     temp_dir.cleanup()
@@ -789,9 +784,7 @@ It is also common to schedule the task to run every n minutes instead of calling
 #### Tips
 
 * Only run the Task as needed when enough data (> 100mb) has been loaded into stage for most efficiency.
-
 * Use Serverless Tasks to avoid per file charges and resolve small file inefficiencies.
-
 
 ## Kafka Setup and Data Publisher
 
@@ -971,7 +964,7 @@ if __name__ == "__main__":
                     failed = False
                 except BufferError as e:
                     producer.flush()
-                
+              
         else:
             break
     producer.flush()
@@ -1055,15 +1048,10 @@ cat data.json.gz | zcat | python ./publish_data.py
 #### Tips
 
 * Every partition will flush to a file when the bytes, time, or records is hit. This can create a LOT of tiny files if not configured well which will be inefficient.
-
 * Not all workloads can accommodate quick flush times. The more data that is flowing, the quicker data can be visible while being efficient.
-
 * Reducing the number of partitions and increasing the bytes, time, records to get to well sized files is valuable for efficiency.
-
 * If you don't have time or a use case to get to well sized files, move to streaming which will match or be better in all cases.
-
 * Number of tasks, number of nodes in the Kafka Connect cluster, amount of CPU and memory on those nodes, and number of partitions will affect performance and credit consumption.
-
 * Kafka Connector for Snowflake is billed by the second of compute needed to ingest files (Snowpipe).
 
 ### From Kafka - in Snowpipe Streaming mode
@@ -1130,6 +1118,7 @@ cat data.json.gz | zcat | python ./publish_data.py
 ```
 
 Query the table to verify the data was inserted. Data will appear in the table in seconds!
+
 ```sql
 SELECT count(*) FROM LIFT_TICKETS_KAFKA_STREAMING;
 ```
@@ -1137,11 +1126,8 @@ SELECT count(*) FROM LIFT_TICKETS_KAFKA_STREAMING;
 #### Tips
 
 * Kafka Connector for Snowflake in Streaming mode is billed by the second of compute needed to merge files as well as the clients connected.
-
 * Setting the flush time lower can/will affect query performance as merge happens asynchronously.
-
 * Number of tasks, number of nodes in the Kafka Connect cluster, amount of CPU and memory on those nodes, and number of partitions will affect performance and credit consumption.
-
 * Streaming is the best ingest pattern when using Kafka.
 
 ### From Kafka - Streaming with Schematization
@@ -1216,6 +1202,7 @@ SELECT * FROM LIFT_TICKETS_KAFKA_STREAMING_SCHEMATIZED;
 Many developers want to be able to directly stream data into Snowflake (without Kafka). In order to do so, Snowflake has a Java SDK.
 
 First, create a table for data to be insert into:
+
 ```sql
 USE ROLE INGEST;
 CREATE OR REPLACE TABLE LIFT_TICKETS_JAVA_STREAMING (TXID varchar(255), RFID varchar(255), RESORT varchar(255), PURCHASE_TIME datetime, EXPIRATION_TIME date, DAYS number, NAME varchar(255), ADDRESS variant, PHONE varchar(255), EMAIL varchar(255), EMERGENCY_CONTACT variant);
@@ -1224,6 +1211,7 @@ CREATE OR REPLACE TABLE LIFT_TICKETS_JAVA_STREAMING (TXID varchar(255), RFID var
 The easiest way to get the sdk working is to use maven for all the dependencies.
 
 Create a file pom.xml with the following contents
+
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 
@@ -1585,9 +1573,7 @@ SELECT count(*) FROM LIFT_TICKETS_JAVA_STREAMING;
 ### Tips
 
 * Ingest with streaming is billed by the second of compute needed to merge files as well as the clients connected.
-
 * Number of nodes/threads running the Java SDK will affect performance and credit consumption
-
 * Best ingest pattern when not using Kafka and are processing streaming data
 
 ## Cleanup
@@ -1617,7 +1603,7 @@ conda remove -n sf-ingest-examples --all
 
 ## Conclusion And Resources
 
-As you've seen, there are many ways to load data into Snowflake. It is important to understand the benefits and consequenses so you can make the right choice when ingesting data into Snowflake. 
+As you've seen, there are many ways to load data into Snowflake. It is important to understand the benefits and consequenses so you can make the right choice when ingesting data into Snowflake.
 
 While some examples only focussed on the Python connector, these patterns are often applicable to our other connectors if your language of choice is not Python. Connectors are available for Python, Java, Node.js, Go, .NET, and PHP. Note that based on the load times, batch size would be worth tuning.
 
@@ -1628,18 +1614,17 @@ If you're using the Kafka connector for Snowflake, put it in Streaming mode. It 
 When well-sized batches are not possible, leveraging our Streaming ingest will significantly increase efficiency. We will merge those tiny batches together in Snowflake later in a very efficient workflow while making that data available for query quickly.
 
 ### What You Learned
+
 - How to Ingest data with Connectors
 - Using Serverless Tasks and Snowpipe to save credit consumption
 - How to Use the Kafka Connectors for Snowflake
 - How Streaming reduces the time to Ingest AND Increases Efficiency
 
 ### Related Resources
+
 - [Snowflake Connector for Python](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector)
 - [Java SDK for the Snowflake Ingest Service](https://github.com/snowflakedb/snowflake-ingest-java)
 - [Python Snowflake Ingest Service SDK](https://github.com/snowflakedb/snowflake-ingest-python)
 - [Getting Started with Snowpipe](/en/developers/guides/getting-started-with-snowpipe/)
 - [Getting Started with Snowpipe Streaming and Amazon MSK](/en/developers/guides/getting-started-with-snowpipe-streaming-aws-msk/)
 - [Streaming Data Integration with Snowflake](/en/developers/guides/data-engineering-streaming-integration/)
-
-
-

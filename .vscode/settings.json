@@ -1,0 +1,12 @@
+{
+    "folder-customization.folders": [
+        {
+            "path": "sfquickstarts\\site\\sfguides\\src\\gain-insights-from-unstructured-data\\",
+            "color": "foldercustomization.AnsiColor118"
+        },
+        {
+            "path": "sfquickstarts\\site\\sfguides\\src\\ask-questions-to-your-own-documents-with-snowflake-cortex-search\\",
+            "color": "foldercustomization.AnsiColor118"
+        }
+    ]
+}
